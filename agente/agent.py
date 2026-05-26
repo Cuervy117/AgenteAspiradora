@@ -10,7 +10,7 @@ class VacuumAgent:
     Clase que representa el agente.
     """
 
-    def __init__(self, width, height, start_x, start_y, max_battery=25):
+    def __init__(self, width, height, start_x, start_y, max_battery=25, start_real_x=0, start_real_y=0):
         self.width = width
         self.height = height
         

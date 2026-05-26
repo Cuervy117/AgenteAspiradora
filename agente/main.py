@@ -2,6 +2,7 @@ import random
 import collections
 from environment import Environment
 from agent import VacuumAgent
+from agentProb import VacuumAgentProb
 from visualizer import Visualizer, MARGIN, TOP_MARGIN, CELL_SIZE
 import pygame
 
@@ -22,12 +23,12 @@ def main():
     env_height = 8
 
     # Creamos un mundo aleatorio: entre 10 y 20 paredes (obstáculos) y entre 5 y 10 basuras.
-    env = Environment(width=env_width, height=env_height, num_obstacles=random.randint(10, 20), num_dirt=random.randint(5, 10), num_carpets=3)
+    env = Environment(width=env_width, height=env_height, num_obstacles=random.randint(10, 20), num_dirt=random.randint(5, 10), num_carpets=0)
 
     # El agente siempre inicia en su base (coord. interna 0,0).
     # El visualizador traduce entre el sistema interno (0,0-based) y el mundo real
     # usando env.start_real_x / env.start_real_y como offset.
-    agent = VacuumAgent(width=env_width, height=env_height, start_x=0, start_y=0, max_battery=120)
+    agent = VacuumAgent(width=env_width, height=env_height, start_x=0, start_y=0, max_battery=120, start_real_x=env.base[0], start_real_y=env.base[1])
  
     # Iniciamos el entorno gráfico
     viz = Visualizer(width=env_width, height=env_height)
