@@ -48,7 +48,7 @@ def genetic_algorithm_tsp(start, targets, dist_func):
                 if child[i] is None:
                     while p2[p2_idx] in child: p2_idx += 1
                     child[i] = p2[p2_idx]
-            if random.random() < 0.2:
+            if random.random() < 0.2: # Mutación
                 m1, m2 = random.sample(range(len(targets)), 2)
                 child[m1], child[m2] = child[m2], child[m1]
             next_pop.append(child)

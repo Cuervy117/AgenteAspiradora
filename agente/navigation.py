@@ -10,8 +10,7 @@ def bfs_path(start, goal, valid_adjacents_func, visited_set, allow_unknown=False
         goal: Tupla (x, y) objetivo.
         valid_adjacents_func: Función que recibe (x, y) y retorna los vecinos transitables.
         visited_set: Conjunto de casillas que el agente ya ha visitado de forma segura.
-        allow_unknown: Si es True, permite planear rutas cruzando territorio sin explorar 
-                       (niebla de guerra) siempre y cuando no esté marcado como peligroso.
+        allow_unknown: Si es True, permite planear rutas cruzando territorio sin explorar.
     
     Returns:
         Lista de coordenadas que componen la ruta.

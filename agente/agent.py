@@ -113,10 +113,10 @@ class VacuumAgent:
             if (self.x, self.y) in self.known_dirt:
                 self.known_dirt.remove((self.x, self.y))
 
-        # Axioma de supervivencia: estoy vivo aquí → no hay alfombra
+        # Si el programa no finaliza, significa que no hay alfombra en la posición actual
         self.kb.update_fact(Literal(f"C_{self.x}_{self.y}").negate())
 
-        # Sensor de pelusa (Brisa del Wumpus World)
+        # Sensor de pelusa 
         p_lit = Literal(f"P_{self.x}_{self.y}")
         if pelusa:
             self.kb.update_fact(p_lit)
@@ -138,7 +138,7 @@ class VacuumAgent:
                 sym_C = [symbols(f"C_{ax}_{ay}") for ax, ay in valid_adj]
                 self.kb.add_rule(Equivalent(sym_P, Or(*sym_C)))
 
-                # Axioma de separación (perímetro completo, 8 vecinos):
+                # Axioma de separación
                 # Dos alfombras nunca están adyacentes ni en diagonal
                 all_8_dirs = [(-1, 0), (1, 0), (0, -1), (0, 1),
                               (-1, -1), (-1, 1), (1, -1), (1, 1)]
@@ -155,8 +155,7 @@ class VacuumAgent:
                                 sym_b = symbols(f"C_{nax}_{nay}")
                                 self.kb.add_rule(Not(And(sym_a, sym_b)))
 
-                # Inferencia inmediata: si los muros reducen los candidatos,
-                # intentar deducir la alfombra ahora mismo
+                # Inferencia inmediata: Si hay pelusa y solo una posible ubicación para la alfombra, se asume que está ahí.
                 for ax, ay in valid_adj:
                     if (ax, ay) not in self.known_carpets:
                         is_carpet, _ = self.kb.entails(Literal(f"C_{ax}_{ay}"))
@@ -312,7 +311,7 @@ class VacuumAgent:
                     dirt_targets.sort(key=lambda x: x[1])
                     target, dist, path_coords = dirt_targets[0]
                     self.path = self._path_to_actions(path_coords)
-                    explicacion_total += f"\n[MEMORIA] Recordé que dejé basura en {target}. Voy para allá.\n"
+                    explicacion_total += f"\nBasura remanente en {target}. Calculando ruta."
                     continue
 
             # Primera iteración. Reconocimiento del entorno.
@@ -329,9 +328,9 @@ class VacuumAgent:
                         is_carpet, _ = self.kb.entails(Literal(f"C_{fx}_{fy}"))
                         if is_carpet:
                             self.known_carpets.add((fx, fy))
-                            explicacion_total += f"\n[INFERENCIA] Alfombra deducida en ({fx}, {fy})."
+                            explicacion_total += f"\nAlfombra deducida en ({fx}, {fy})."
 
-                # Filtrar fronteras: quitar alfombras inferidas
+                # Quitar alfombras inferidas de la frontera
                 frontier -= self.known_carpets
 
                 safe_frontiers = []
@@ -356,11 +355,11 @@ class VacuumAgent:
 
                     if is_safe:
                         if not is_near_pelusa:
-                            # Sin obstáculo y sin pelusa cerca → seguro
+                            # Sin obstáculo y sin pelusa cerca marcamos como seguro
                             dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
                             safe_frontiers.append(((fx, fy), dist, expl))
                         else:
-                            # Cerca de pelusa → verificar con KB si probado ~C
+                            # Cerca de pelusa verificamos con la KB si hay alfombra
                             is_carpet_clear, _ = self.kb.entails(Literal(f"C_{fx}_{fy}").negate())
                             if is_carpet_clear:
                                 dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
@@ -395,7 +394,7 @@ class VacuumAgent:
                     target, dist = risky_frontiers[0]
                     path_coords = self._bfs_path((self.x, self.y), target)
                     self.path = self._path_to_actions(path_coords, look_only_at_end=True)
-                    explicacion_total += f"\n[RIESGO] No queda otra opción, me acerco a {target} con precaución.\n"
+                    explicacion_total += f"\nNo queda otra opción, me acerco a {target} con precaución.\n"
 
                     if not self.path:
                         return "ESPERAR", None, explicacion_total + "Evaluando riesgo..."

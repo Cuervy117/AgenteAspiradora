@@ -1,46 +1,29 @@
-"""
-=============================================================================
-  visualizer.py — La Ventana Mágica (Gráficos con PyGame)
-=============================================================================
-  Si el entorno es el "Mundo Real", este archivo son "nuestros ojos".
-  Nos dibuja una ventana interactiva donde podemos ver DOS cosas a la vez:
-  
-    - Panel izquierdo: El mundo tal y como es (somos como dioses viéndolo todo).
-    - Panel derecho: Cómo se imagina el mundo la aspiradora en su cabecita 
-      (Niebla de guerra). Al principio ve todo negro, y va "descubriendo"
-      el mapa paso a pasito.
-=============================================================================
-"""
-
 import pygame
 
-# ── Caja de Colores (RGB) ──
-# En computación los colores se hacen mezclando Rojo, Verde y Azul.
+# Caja de colores (RGB)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BROWN = (139, 69, 19)       # Color de los muros de ladrillo
-GREEN = (34, 139, 34)       # Color de la base de recarga (lugar seguro)
+GREEN = (34, 139, 34)       # Color de la base de recarga 
 BLUE = (0, 0, 255)          # Color de la aspiradora (batería llena)
-YELLOW = (255, 215, 0)      # Color de las manchitas de basura
-RED = (255, 0, 0)           # Color de la aspiradora cuando llora por batería
+YELLOW = (255, 215, 0)      # Color de la suciedad.
+RED = (255, 0, 0)           # Color de la aspiradora cuando la bateria es baja.
 DARK_GRAY = (40, 40, 40)    # Color de lo desconocido (Niebla de guerra)
 
-# ── Medidas para dibujar ──
-CELL_SIZE = 80              # Qué tan gordito dibujamos cada cuadro del piso
-MARGIN = 5                  # La línea negra de separación entre cuadros
-TOP_MARGIN = 40             # El espacio para escribir los títulos arriba
+# Medidas
+CELL_SIZE = 80              
+MARGIN = 5                  
+TOP_MARGIN = 40
 
 
 class Visualizer:
     """
-    La clase encargada de pintar colores en la pantalla.
+    La clase encargada de dibujar la simulación.
     """
 
     def __init__(self, width, height):
         """
-        Prepara el "lienzo" donde vamos a pintar.
-        Hace matemáticas para calcular de qué tamaño debe ser la ventana
-        si queremos poner dos tableros uno al lado del otro.
+        Inicialización de la ventana
         """
         pygame.init() # Encendemos el motor gráfico
         self.width = width
@@ -57,9 +40,7 @@ class Visualizer:
         self.font = pygame.font.SysFont("Arial", 20)
         self.title_font = pygame.font.SysFont("Arial", 24, bold=True)
 
-    # ═══════════════════════════════════════════════════════════════════
     #  Renderizado principal
-    # ═══════════════════════════════════════════════════════════════════
 
     def draw(self, env, agent, paso, action_text, agent_real_x, agent_real_y, percepts=None, explicacion="", action_history=None, show_heatmap=False):
         """
@@ -70,21 +51,21 @@ class Visualizer:
         """
         self.screen.fill(BLACK)
 
-        # ── Títulos de cada panel ──
+        # Títulos de cada panel
         title1 = self.title_font.render("Entorno Real", True, WHITE)
         title2 = self.title_font.render("Visión del Agente (Niebla)", True, WHITE)
         self.screen.blit(title1, (self.grid_width // 2 - title1.get_width() // 2, 5))
         self.screen.blit(title2, (self.grid_width + self.grid_width // 2 - title2.get_width() // 2, 5))
 
-        # ── Dibujar ambas cuadrículas ──
+        # Dibujar ambas cuadrículas
         self._draw_grid(env, agent, 0, TOP_MARGIN, False, agent_real_x, agent_real_y, show_heatmap)
         self._draw_grid(env, agent, self.grid_width, TOP_MARGIN, True, agent_real_x, agent_real_y, show_heatmap)
 
-        # ── Separador central ──
+        # Separador central
         pygame.draw.line(self.screen, WHITE, (self.grid_width, 0), (self.grid_width, self.screen_height - 250), 2)
         pygame.draw.line(self.screen, WHITE, (0, self.grid_height + TOP_MARGIN + 10), (self.screen_width, self.grid_height + TOP_MARGIN + 10), 2)
 
-        # ── Panel de información inferior ──
+        # Panel de información inferior
         info_y = self.grid_height + TOP_MARGIN + 20
         
         text_pos = self.font.render(f"Paso: {paso} | Relativa: ({agent.x}, {agent.y}) | Real: ({agent_real_x}, {agent_real_y}) | Dir: {agent.orientacion} | Modo: {agent.mode}", True, WHITE)
@@ -111,7 +92,6 @@ class Visualizer:
         
         small_font = pygame.font.SysFont("Arial", 16)
         if explicacion:
-            # Clipear para que el texto largo no invada el panel derecho
             clip_rect = pygame.Rect(10, expl_y + 25, self.grid_width - 20, 200)
             self.screen.set_clip(clip_rect)
             lines = explicacion.split('\n')
@@ -121,9 +101,9 @@ class Visualizer:
                     text_line = small_font.render(line.strip(), True, (200, 200, 200))
                     self.screen.blit(text_line, (20, expl_y + 25 + draw_idx * 20))
                     draw_idx += 1
-            self.screen.set_clip(None) # Quitar clipping
+            self.screen.set_clip(None) 
                     
-        # ── Panel de Historial de Acciones ──
+        # Panel de Historial de Acciones
         hist_title = self.font.render("Historial de Acciones:", True, WHITE)
         self.screen.blit(hist_title, (self.grid_width + 10, expl_y))
         if action_history:
@@ -133,7 +113,7 @@ class Visualizer:
                 h_text = small_font.render(f"- {act_str}", True, (color_val, color_val, color_val))
                 self.screen.blit(h_text, (self.grid_width + 20, hist_y + i * 20))
 
-        # ── Barra de batería con gradiente de color ──
+        # Barra de batería con gradiente de color
         battery_pct = max(0, min(1.0, agent.battery / agent.max_battery))
         r = min(255, int(255 * 2 * (1 - battery_pct)))
         g = min(255, int(255 * 2 * battery_pct))
@@ -156,7 +136,7 @@ class Visualizer:
         text_rect = bat_text.get_rect(center=(bar_x + bar_width // 2, bar_y + bar_height // 2))
         self.screen.blit(bat_text, text_rect)
         
-        # ── Estadísticas de Eficiencia ──
+        # Estadísticas de Eficiencia 
         stats_y = bar_y + 40
         explored = len(agent.visited)
         total_cells = (env.width * env.height) - len(env.obstacles) - len(getattr(env, 'carpets', set()))
@@ -168,9 +148,7 @@ class Visualizer:
 
         pygame.display.flip()
 
-    # ═══════════════════════════════════════════════════════════════════
-    #  Renderizado de la cuadrícula (real o perspectiva del agente)
-    # ═══════════════════════════════════════════════════════════════════
+    #  Renderizado de la cuadrícula 
 
     def _draw_grid(self, env, agent, offset_x, offset_y, is_agent_view, agent_real_x, agent_real_y, show_heatmap):
         """
@@ -212,7 +190,7 @@ class Visualizer:
                     if (x, y) in env.dirt:
                         has_dirt = True
                 else:
-                    # ── Panel AGENTE: mapeo de coordenadas y fog of war ──
+                    # Panel AGENTE: mapeo de coordenadas y fog of war
                     # Convertir coordenada de pantalla a coordenada relativa del agente
                     ax = x - getattr(env, 'start_real_x', 0)
                     ay = y - getattr(env, 'start_real_y', 0)
@@ -268,11 +246,10 @@ class Visualizer:
                 if has_dirt and not is_fog:
                     pygame.draw.circle(self.screen, YELLOW, rect.center, CELL_SIZE // 4)
 
-                # ── Dibujar Pelusa 'P' ──
+                # Dibujar Pelusa 'P'
                 has_pelusa = False
                 if not env.is_obstacle(x, y):
                     if not is_agent_view:
-                        # En el mundo real, la pelusa está alrededor de las alfombras
                         for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                             if hasattr(env, 'carpets') and (x + dx, y + dy) in env.carpets:
                                 has_pelusa = True
@@ -287,7 +264,7 @@ class Visualizer:
                     p_rect = p_text.get_rect(center=(rect.centerx + CELL_SIZE//3, rect.centery - CELL_SIZE//3))
                     self.screen.blit(p_text, p_rect)
 
-                # ── Dibujar el agente (círculo + flecha de orientación) ──
+                # Dibujar el agente (círculo + flecha de orientación)
                 is_agent_pos = False
                 if not is_agent_view and (x, y) == (agent_real_x, agent_real_y):
                     is_agent_pos = True
@@ -315,7 +292,7 @@ class Visualizer:
 
                     pygame.draw.line(self.screen, BLACK, rect.center, end_pos, 4)
 
-        # ── Dibujar la Ruta Planificada (Solo en vista de agente) ──
+        # Dibujar la ruta planificada
         if is_agent_view:
             route = agent.get_planned_route()
             if route:
@@ -340,9 +317,6 @@ class Visualizer:
                 if len(points) > 1:
                     pygame.draw.lines(self.screen, (0, 255, 255), False, points, 4)
 
-    # ═══════════════════════════════════════════════════════════════════
-    #  Gestión de eventos (interactividad del usuario)
-    # ═══════════════════════════════════════════════════════════════════
 
     def process_events(self):
         """
