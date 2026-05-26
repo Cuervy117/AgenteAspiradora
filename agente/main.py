@@ -1,17 +1,3 @@
-"""
-=============================================================================
-  main.py — Bucle principal de la simulación
-=============================================================================
-  Orquesta el ciclo Percibir → Razonar → Actuar del agente aspiradora,
-  coordinando el entorno, el agente y la visualización.
-  
-  Implementa el "Programa del Entorno" (Russell & Norvig §2.4, Fig. 2.13)
-  que ejecuta la simulación paso a paso, y el sistema de coordenadas
-  duales donde el agente cree iniciar en (0,0) mientras que en la
-  realidad está en una posición aleatoria del mapa.
-=============================================================================
-"""
-
 import random
 import collections
 from environment import Environment
