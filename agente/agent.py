@@ -1,4 +1,5 @@
 from logic import KnowledgeBase, Literal
+from sympy import symbols, Equivalent, Or, Not, And
 from collections import defaultdict
 from ml_model import get_or_train_model, predict_mode
 from navigation import bfs_path, path_to_actions
@@ -23,7 +24,9 @@ class VacuumAgent:
         # Memoria del agente
         self.visited = set()
         self.visited.add((start_x, start_y))
-
+        self.pelusa_positions = set()       
+        self.known_carpets = set()          
+        self._pelusa_rules_added = set()    
         self.kb = KnowledgeBase()
 
         self.max_battery = max_battery
@@ -48,9 +51,10 @@ class VacuumAgent:
     # Percepción inicial
     def _init_rules(self):
         """
-        Al inicio, el agente sabe que no hay un muro en su posición inicial.
+        Al inicio, el agente sabe que no hay un muro ni una alfombra en su posición inicial.
         """
         self.kb.add_fact(Literal(f"O_{self.x}_{self.y}").negate())
+        self.kb.add_fact(Literal(f"C_{self.x}_{self.y}").negate())
 
     def _get_valid_adjacents(self, x, y):
         """
@@ -64,6 +68,8 @@ class VacuumAgent:
         adj = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
         valid = []
         for nx, ny in adj:
+            if (nx, ny) in self.known_carpets:
+                continue  # Alfombra confirmada por inferencia, intransitable
             obs_sym = Literal(f"O_{nx}_{ny}").to_sympy()
             if obs_sym not in self.kb.clauses:
                 valid.append((nx, ny)) 
@@ -81,6 +87,7 @@ class VacuumAgent:
         """
         sensor_frente = percepts.get("Obstaculo_Frente", False)
         sucio = percepts.get("Suciedad", False)
+        pelusa = percepts.get("Pelusa", False)
 
         # Posición matemática
         fx, fy = self.x, self.y
@@ -100,11 +107,61 @@ class VacuumAgent:
         l_lit = Literal(f"L_{self.x}_{self.y}")
         if sucio:
             self.kb.update_fact(l_lit.negate())
-            self.known_dirt.add((self.x, self.y)) # Deja pendiente la suciedad para limpiarla ya sea enseguida o en el futuro
+            self.known_dirt.add((self.x, self.y))
         else:
             self.kb.update_fact(l_lit)
-            if hasattr(self, 'known_dirt') and (self.x, self.y) in self.known_dirt:
+            if (self.x, self.y) in self.known_dirt:
                 self.known_dirt.remove((self.x, self.y))
+
+        # Axioma de supervivencia: estoy vivo aquí → no hay alfombra
+        self.kb.update_fact(Literal(f"C_{self.x}_{self.y}").negate())
+
+        # Sensor de pelusa (Brisa del Wumpus World)
+        p_lit = Literal(f"P_{self.x}_{self.y}")
+        if pelusa:
+            self.kb.update_fact(p_lit)
+            self.pelusa_positions.add((self.x, self.y))
+        else:
+            self.kb.update_fact(p_lit.negate())
+
+        # Regla bicondicional: P_x_y ⟺ C_adj₁ ∨ C_adj₂ ∨ C_adj₃ ∨ C_adj₄
+        # Solo se inyecta una vez por celda visitada
+        if (self.x, self.y) not in self._pelusa_rules_added:
+            self._pelusa_rules_added.add((self.x, self.y))
+            adj = [(self.x+1, self.y), (self.x-1, self.y),
+                   (self.x, self.y+1), (self.x, self.y-1)]
+            # Excluir vecinos que ya se sabe que son muros
+            valid_adj = [(nx, ny) for nx, ny in adj
+                         if Literal(f"O_{nx}_{ny}").to_sympy() not in self.kb.clauses]
+            if valid_adj:
+                sym_P = symbols(f"P_{self.x}_{self.y}")
+                sym_C = [symbols(f"C_{ax}_{ay}") for ax, ay in valid_adj]
+                self.kb.add_rule(Equivalent(sym_P, Or(*sym_C)))
+
+                # Axioma de separación (perímetro completo, 8 vecinos):
+                # Dos alfombras nunca están adyacentes ni en diagonal
+                all_8_dirs = [(-1, 0), (1, 0), (0, -1), (0, 1),
+                              (-1, -1), (-1, 1), (1, -1), (1, 1)]
+                if not hasattr(self, '_separation_added'):
+                    self._separation_added = set()
+                for ax, ay in valid_adj:
+                    for dx, dy in all_8_dirs:
+                        nax, nay = ax + dx, ay + dy
+                        if (nax, nay) != (self.x, self.y):
+                            pair = tuple(sorted([(ax, ay), (nax, nay)]))
+                            if pair not in self._separation_added:
+                                self._separation_added.add(pair)
+                                sym_a = symbols(f"C_{ax}_{ay}")
+                                sym_b = symbols(f"C_{nax}_{nay}")
+                                self.kb.add_rule(Not(And(sym_a, sym_b)))
+
+                # Inferencia inmediata: si los muros reducen los candidatos,
+                # intentar deducir la alfombra ahora mismo
+                for ax, ay in valid_adj:
+                    if (ax, ay) not in self.known_carpets:
+                        is_carpet, _ = self.kb.entails(Literal(f"C_{ax}_{ay}"))
+                        if is_carpet:
+                            self.known_carpets.add((ax, ay))
 
     # Wrappers de módulos externos
 
@@ -266,8 +323,20 @@ class VacuumAgent:
                         if (nx, ny) not in self.visited:
                             frontier.add((nx, ny))
 
+                # Motor de Inferencia Retroactiva (Alfombras)
+                for fx, fy in list(frontier):
+                    if (fx, fy) not in self.known_carpets:
+                        is_carpet, _ = self.kb.entails(Literal(f"C_{fx}_{fy}"))
+                        if is_carpet:
+                            self.known_carpets.add((fx, fy))
+                            explicacion_total += f"\n[INFERENCIA] Alfombra deducida en ({fx}, {fy})."
+
+                # Filtrar fronteras: quitar alfombras inferidas
+                frontier -= self.known_carpets
+
                 safe_frontiers = []
                 unknown_frontiers = []
+                risky_frontiers = []    # Sospechosas de alfombra
 
                 for fx, fy in frontier:
                     query_safe = Literal(f"O_{fx}_{fy}").negate()
@@ -276,10 +345,30 @@ class VacuumAgent:
                     query_obstacle = Literal(f"O_{fx}_{fy}")
                     is_obs, _ = self.kb.entails(query_obstacle)
 
+                    if is_obs:
+                        continue
+
+                    # ¿Es adyacente a alguna celda con pelusa?
+                    is_near_pelusa = any(
+                        (fx + dx, fy + dy) in self.pelusa_positions
+                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                    )
+
                     if is_safe:
-                        dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
-                        safe_frontiers.append(((fx, fy), dist, expl))
-                    elif not is_obs: 
+                        if not is_near_pelusa:
+                            # Sin obstáculo y sin pelusa cerca → seguro
+                            dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
+                            safe_frontiers.append(((fx, fy), dist, expl))
+                        else:
+                            # Cerca de pelusa → verificar con KB si probado ~C
+                            is_carpet_clear, _ = self.kb.entails(Literal(f"C_{fx}_{fy}").negate())
+                            if is_carpet_clear:
+                                dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
+                                safe_frontiers.append(((fx, fy), dist, expl))
+                            else:
+                                dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
+                                risky_frontiers.append(((fx, fy), dist))
+                    elif not is_obs:
                         dist = len(self._bfs_path((self.x, self.y), (fx, fy)))
                         unknown_frontiers.append(((fx, fy), dist))
 
@@ -299,6 +388,17 @@ class VacuumAgent:
 
                     if not self.path:
                         return "ESPERAR", None, explicacion_total + "Me acerco a investigar..."
+                    continue
+                elif risky_frontiers:
+                    # Último recurso: explorar celda sospechosa de alfombra
+                    risky_frontiers.sort(key=lambda x: x[1])
+                    target, dist = risky_frontiers[0]
+                    path_coords = self._bfs_path((self.x, self.y), target)
+                    self.path = self._path_to_actions(path_coords, look_only_at_end=True)
+                    explicacion_total += f"\n[RIESGO] No queda otra opción, me acerco a {target} con precaución.\n"
+
+                    if not self.path:
+                        return "ESPERAR", None, explicacion_total + "Evaluando riesgo..."
                     continue
                 else:
                     self.mode = "GO_FINISH"

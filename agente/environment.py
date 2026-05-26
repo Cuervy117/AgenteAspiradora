@@ -61,12 +61,21 @@ class Environment:
             if (x, y) not in base_y_adyacentes:
                 self.obstacles.add((x, y))
 
-        # Generación de alfombras
-        while len(self.carpets) < num_carpets:
+        # Generación de alfombras (nunca adyacentes entre sí)
+        carpet_attempts = 0
+        while len(self.carpets) < num_carpets and carpet_attempts < 200:
+            carpet_attempts += 1
             x = random.randint(0, width - 1)
             y = random.randint(0, height - 1)
             if (x, y) not in base_y_adyacentes and (x, y) not in self.obstacles:
-                self.carpets.add((x, y))
+                # Verificar que no sea adyacente (ni diagonal) a otra alfombra
+                adjacent_to_carpet = any(
+                    (x + dx, y + dy) in self.carpets
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1),
+                                   (-1, -1), (-1, 1), (1, -1), (1, 1)]
+                )
+                if not adjacent_to_carpet:
+                    self.carpets.add((x, y))
 
         self.spawn_dirt(num_dirt)
 
