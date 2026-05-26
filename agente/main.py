@@ -22,7 +22,7 @@ def main():
     env_height = 8
 
     # Creamos un mundo aleatorio: entre 10 y 20 paredes (obstáculos) y entre 5 y 10 basuras.
-    env = Environment(width=env_width, height=env_height, num_obstacles=random.randint(10, 20), num_dirt=random.randint(5, 10), num_carpets=2)
+    env = Environment(width=env_width, height=env_height, num_obstacles=random.randint(10, 20), num_dirt=random.randint(5, 10), num_carpets=0)
 
     # El agente siempre inicia en su base (coord. interna 0,0).
     # El visualizador traduce entre el sistema interno (0,0-based) y el mundo real
